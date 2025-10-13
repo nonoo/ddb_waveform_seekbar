@@ -688,7 +688,7 @@ waveform_generate_wavedata (gpointer user_data, DB_playItem_t *it, const char *u
                 .channelmask = fileinfo->fmt.channelmask,
                 .is_float = 1,
 #if (DDB_API_LEVEL >= 17)
-                .flags = 0,
+                .flags = 0
 #else
                 .is_bigendian = 0
 #endif
