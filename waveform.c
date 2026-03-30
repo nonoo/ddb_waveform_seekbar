@@ -1178,6 +1178,17 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
     case DB_EV_SEEKED:
         g_idle_add (waveform_redraw_cb, w);
         g_idle_add (ruler_redraw_cb, w);
+        break;
+    case DB_EV_TRACKINFOCHANGED:
+        if (playback_status != STOPPED) {
+            tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+            if (tid) {
+                deadbeef->thread_detach (tid);
+            }
+            g_idle_add (waveform_redraw_cb, w);
+            g_idle_add (ruler_redraw_cb, w);
+        }
+        break;
     }
     return 0;
 }
