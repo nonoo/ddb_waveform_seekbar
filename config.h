@@ -75,10 +75,12 @@
 #define     CONFSTR_WF_CACHE_ENABLED     "waveform.cache_enabled"
 #define     CONFSTR_WF_SCROLL_ENABLED    "waveform.scroll_enabled"
 #define     CONFSTR_WF_NUM_SAMPLES       "waveform.num_samples"
+#define     CONFSTR_WF_REFRESH_ON_START  "waveform.refresh_on_start"
 
 extern gboolean CONFIG_LOG_ENABLED;
 extern gboolean CONFIG_MIX_TO_MONO;
 extern gboolean CONFIG_CACHE_ENABLED;
+extern gboolean CONFIG_REFRESH_ON_START;
 extern gboolean CONFIG_SCROLL_ENABLED;
 extern gboolean CONFIG_DISPLAY_RMS;
 extern gboolean CONFIG_DISPLAY_RULER;

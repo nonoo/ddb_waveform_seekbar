@@ -61,6 +61,7 @@ on_button_config (GtkMenuItem *menuitem, gpointer user_data)
     GtkWidget *log_scale;
     GtkWidget *display_rms;
     GtkWidget *display_ruler;
+    GtkWidget *refresh_on_start;
     GtkWidget *style_label;
     GtkWidget *style_frame;
     GtkWidget *options_label;
@@ -229,6 +230,10 @@ on_button_config (GtkMenuItem *menuitem, gpointer user_data)
     gtk_widget_show (display_ruler);
     gtk_box_pack_start (GTK_BOX (vbox03), display_ruler, FALSE, FALSE, 0);
 
+    refresh_on_start = gtk_check_button_new_with_label ("Refresh Waveform on playback start");
+    gtk_widget_show (refresh_on_start);
+    gtk_box_pack_start (GTK_BOX (vbox03), refresh_on_start, FALSE, FALSE, 0);
+
     dialog_action_area13 = gtk_dialog_get_action_area (GTK_DIALOG (waveform_properties));
     gtk_widget_show (dialog_action_area13);
     gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area13), GTK_BUTTONBOX_END);
@@ -263,6 +268,7 @@ on_button_config (GtkMenuItem *menuitem, gpointer user_data)
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (log_scale), CONFIG_LOG_ENABLED);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (display_rms), CONFIG_DISPLAY_RMS);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (display_ruler), CONFIG_DISPLAY_RULER);
+    gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (refresh_on_start), CONFIG_REFRESH_ON_START);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (shade_waveform), CONFIG_SHADE_WAVEFORM);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (soundcloud_style), CONFIG_SOUNDCLOUD_STYLE);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (fill_waveform), CONFIG_FILL_WAVEFORM);
@@ -295,6 +301,7 @@ on_button_config (GtkMenuItem *menuitem, gpointer user_data)
             CONFIG_LOG_ENABLED = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (log_scale));
             CONFIG_DISPLAY_RMS = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (display_rms));
             CONFIG_DISPLAY_RULER = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (display_ruler));
+            CONFIG_REFRESH_ON_START = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (refresh_on_start));
             CONFIG_SHADE_WAVEFORM = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (shade_waveform));
             CONFIG_SOUNDCLOUD_STYLE = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (soundcloud_style));
             CONFIG_FILL_WAVEFORM = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (fill_waveform));

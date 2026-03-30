@@ -41,7 +41,8 @@
 gboolean CONFIG_LOG_ENABLED = FALSE;
 gboolean CONFIG_MIX_TO_MONO = FALSE;
 gboolean CONFIG_CACHE_ENABLED = TRUE;
-gboolean CONFIG_SCROLL_ENABLED = TRUE;
+gboolean CONFIG_REFRESH_ON_START = FALSE;
+gboolean CONFIG_SCROLL_ENABLED = FALSE;
 gboolean CONFIG_DISPLAY_RMS = TRUE;
 gboolean CONFIG_DISPLAY_RULER = FALSE;
 gboolean CONFIG_SHADE_WAVEFORM = FALSE;
@@ -83,6 +84,7 @@ save_config (void)
     deadbeef->conf_set_int (CONFSTR_WF_REFRESH_INTERVAL,    CONFIG_REFRESH_INTERVAL);
     deadbeef->conf_set_int (CONFSTR_WF_NUM_SAMPLES,         CONFIG_NUM_SAMPLES);
     deadbeef->conf_set_int (CONFSTR_WF_CACHE_ENABLED,       CONFIG_CACHE_ENABLED);
+    deadbeef->conf_set_int (CONFSTR_WF_REFRESH_ON_START,    CONFIG_REFRESH_ON_START);
     deadbeef->conf_set_int (CONFSTR_WF_SCROLL_ENABLED,      CONFIG_SCROLL_ENABLED);
     deadbeef->conf_set_int (CONFSTR_WF_BG_COLOR_R,          CONFIG_BG_COLOR.red);
     deadbeef->conf_set_int (CONFSTR_WF_BG_COLOR_G,          CONFIG_BG_COLOR.green);
@@ -125,6 +127,7 @@ load_config (void)
     CONFIG_MAX_FILE_LENGTH = deadbeef->conf_get_int (CONFSTR_WF_MAX_FILE_LENGTH,       180);
     CONFIG_NUM_SAMPLES = deadbeef->conf_get_int (CONFSTR_WF_NUM_SAMPLES,              2048);
     CONFIG_CACHE_ENABLED = deadbeef->conf_get_int (CONFSTR_WF_CACHE_ENABLED,          TRUE);
+    CONFIG_REFRESH_ON_START = deadbeef->conf_get_int (CONFSTR_WF_REFRESH_ON_START,   FALSE);
     CONFIG_SCROLL_ENABLED = deadbeef->conf_get_int (CONFSTR_WF_SCROLL_ENABLED,        TRUE);
 
     CONFIG_BG_COLOR.red = deadbeef->conf_get_int (CONFSTR_WF_BG_COLOR_R,             50000);

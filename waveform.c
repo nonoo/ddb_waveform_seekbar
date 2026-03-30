@@ -1160,16 +1160,39 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
 
     switch (id) {
     case DB_EV_SONGSTARTED:
+    {
         playback_status = PLAYING;
-        w->pending_forced_regen = 0;
+
         waveform_set_refresh_interval (w, CONFIG_REFRESH_INTERVAL);
         g_idle_add (waveform_redraw_cb, w);
         g_idle_add (ruler_redraw_cb, w);
-        tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+
+        DB_playItem_t *playing = deadbeef->streamer_get_playing_track ();
+        int do_regen = w->pending_forced_regen || CONFIG_REFRESH_ON_START;
+        w->pending_forced_regen = 0;
+        if (playing) {
+            deadbeef->pl_lock ();
+            const char *tok = deadbeef->pl_find_meta_raw (playing, ":WAVEFORM_FORCED_REGEN_TOKEN");
+            if (tok && tok[0] == '1') {
+                do_regen = 1;
+                deadbeef->pl_replace_meta (playing, ":WAVEFORM_FORCED_REGEN_TOKEN", "0");
+            }
+            deadbeef->pl_unlock ();
+            deadbeef->pl_item_unref (playing);
+        }
+
+        if (do_regen) {
+            tid = deadbeef->thread_start_low_priority (waveform_get_wavedata_force_regen, w);
+        }
+        else {
+            tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+        }
+
         if (tid) {
             deadbeef->thread_detach (tid);
         }
         break;
+    }
     case DB_EV_STOP:
         playback_status = STOPPED;
         w->pending_forced_regen = 0;
@@ -1197,19 +1220,21 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
         g_idle_add (ruler_redraw_cb, w);
         break;
     case DB_EV_TRACKINFOCHANGED:
-        if (playback_status != STOPPED) {
-            DB_playItem_t *playing = deadbeef->streamer_get_playing_track ();
-            int do_regen = 0;
-            if (playing) {
-                deadbeef->pl_lock ();
-                const char *tok = deadbeef->pl_find_meta_raw (playing, ":WAVEFORM_FORCED_REGEN_TOKEN");
-                if (tok && tok[0] == '1') {
-                    do_regen = 1;
-                    deadbeef->pl_replace_meta (playing, ":WAVEFORM_FORCED_REGEN_TOKEN", "0");
-                }
-                deadbeef->pl_unlock ();
-                deadbeef->pl_item_unref (playing);
+    {
+        DB_playItem_t *playing = deadbeef->streamer_get_playing_track ();
+        int do_regen = 0;
+        if (playing) {
+            deadbeef->pl_lock ();
+            const char *tok = deadbeef->pl_find_meta_raw (playing, ":WAVEFORM_FORCED_REGEN_TOKEN");
+            if (tok && tok[0] == '1') {
+                do_regen = 1;
+                deadbeef->pl_replace_meta (playing, ":WAVEFORM_FORCED_REGEN_TOKEN", "0");
             }
+            deadbeef->pl_unlock ();
+            deadbeef->pl_item_unref (playing);
+        }
+
+        if (playback_status != STOPPED) {
             if (do_regen) {
                 tid = deadbeef->thread_start_low_priority (waveform_get_wavedata_force_regen, w);
             }
@@ -1222,7 +1247,11 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
             g_idle_add (waveform_redraw_cb, w);
             g_idle_add (ruler_redraw_cb, w);
         }
+        else if (do_regen) {
+            w->pending_forced_regen = 1;
+        }
         break;
+    }
     }
     return 0;
 }
@@ -1311,7 +1340,23 @@ waveform_init (ddb_gtkui_widget_t *w)
     DB_playItem_t *it = deadbeef->streamer_get_playing_track ();
     if (it) {
         playback_status = PLAYING;
-        intptr_t tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+        int do_regen = CONFIG_REFRESH_ON_START;
+        deadbeef->pl_lock ();
+        const char *tok = deadbeef->pl_find_meta_raw (it, ":WAVEFORM_FORCED_REGEN_TOKEN");
+        if (tok && tok[0] == '1') {
+            do_regen = 1;
+            deadbeef->pl_replace_meta (it, ":WAVEFORM_FORCED_REGEN_TOKEN", "0");
+        }
+        deadbeef->pl_unlock ();
+
+        intptr_t tid;
+        if (do_regen) {
+            tid = deadbeef->thread_start_low_priority (waveform_get_wavedata_force_regen, w);
+        }
+        else {
+            tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+        }
+
         if (tid) {
             deadbeef->thread_detach (tid);
         }
@@ -1436,17 +1481,18 @@ waveform_disconnect (void)
 static int
 waveform_action_lookup (DB_plugin_action_t *action, ddb_action_context_t ctx)
 {
-    DB_playItem_t *it = NULL;
     deadbeef->pl_lock ();
     if (ctx == DDB_ACTION_CTX_SELECTION) {
         ddb_playlist_t *plt = deadbeef->plt_get_curr ();
         if (plt) {
-            it = deadbeef->plt_get_first (plt, PL_MAIN);
+            DB_playItem_t *it = deadbeef->plt_get_first (plt, PL_MAIN);
             while (it) {
                 if (deadbeef->pl_is_selected (it)) {
                     const char *uri = deadbeef->pl_find_meta_raw (it, ":URI");
                     if (waveform_is_cached (it, uri)) {
                         waveform_delete (it, uri);
+                        deadbeef->pl_replace_meta (it, ":WAVEFORM_FORCED_REGEN_TOKEN", "1");
+                        deadbeef->sendmessage (DB_EV_TRACKINFOCHANGED, (uintptr_t)it, 0, 0);
                     }
                 }
                 DB_playItem_t *next = deadbeef->pl_get_next (it, PL_MAIN);
@@ -1455,9 +1501,6 @@ waveform_action_lookup (DB_plugin_action_t *action, ddb_action_context_t ctx)
             }
             deadbeef->plt_unref (plt);
         }
-    }
-    if (it) {
-        deadbeef->pl_item_unref (it);
     }
     deadbeef->pl_unlock ();
     return 0;
