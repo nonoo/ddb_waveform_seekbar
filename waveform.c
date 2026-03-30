@@ -88,6 +88,7 @@ typedef struct
     float height;
     float width;
     float pos_last;
+    int pending_forced_regen;
     intptr_t mutex;
     cairo_surface_t *surf;
     cairo_surface_t *surf_shaded;
@@ -858,7 +859,7 @@ waveform_get_from_cache (gpointer user_data, DB_playItem_t *it, const char *uri)
 }
 
 static void
-waveform_get_wavedata (gpointer user_data)
+waveform_get_wavedata_internal (gpointer user_data, int force_regen)
 {
     waveform_t *w = user_data;
     DB_playItem_t *it = deadbeef->streamer_get_playing_track ();
@@ -875,7 +876,10 @@ waveform_get_wavedata (gpointer user_data)
     }
 
     deadbeef->background_job_increment ();
-    if (CONFIG_CACHE_ENABLED && waveform_is_cached (it, uri)) {
+    if (force_regen && CONFIG_CACHE_ENABLED) {
+        waveform_delete (it, uri);
+    }
+    if (!force_regen && CONFIG_CACHE_ENABLED && waveform_is_cached (it, uri)) {
         waveform_get_from_cache (w, it, uri);
         g_idle_add (waveform_redraw_cb, w);
     }
@@ -924,6 +928,18 @@ waveform_get_wavedata (gpointer user_data)
 
     deadbeef->pl_item_unref (it);
     deadbeef->background_job_decrement ();
+}
+
+static void
+waveform_get_wavedata (gpointer user_data)
+{
+    waveform_get_wavedata_internal (user_data, 0);
+}
+
+static void
+waveform_get_wavedata_force_regen (gpointer user_data)
+{
+    waveform_get_wavedata_internal (user_data, 1);
 }
 
 static gboolean
@@ -1145,6 +1161,7 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
     switch (id) {
     case DB_EV_SONGSTARTED:
         playback_status = PLAYING;
+        w->pending_forced_regen = 0;
         waveform_set_refresh_interval (w, CONFIG_REFRESH_INTERVAL);
         g_idle_add (waveform_redraw_cb, w);
         g_idle_add (ruler_redraw_cb, w);
@@ -1155,6 +1172,7 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
         break;
     case DB_EV_STOP:
         playback_status = STOPPED;
+        w->pending_forced_regen = 0;
         deadbeef->mutex_lock (w->mutex);
         memset (w->wave->data, 0, sizeof (short) * w->max_buffer_len);
         w->wave->data_len = 0;
@@ -1176,12 +1194,28 @@ waveform_message (ddb_gtkui_widget_t *widget, uint32_t id, uintptr_t ctx, uint32
         }
         break;
     case DB_EV_SEEKED:
-        g_idle_add (waveform_redraw_cb, w);
         g_idle_add (ruler_redraw_cb, w);
         break;
     case DB_EV_TRACKINFOCHANGED:
         if (playback_status != STOPPED) {
-            tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+            DB_playItem_t *playing = deadbeef->streamer_get_playing_track ();
+            int do_regen = 0;
+            if (playing) {
+                deadbeef->pl_lock ();
+                const char *tok = deadbeef->pl_find_meta_raw (playing, ":WAVEFORM_FORCED_REGEN_TOKEN");
+                if (tok && tok[0] == '1') {
+                    do_regen = 1;
+                    deadbeef->pl_replace_meta (playing, ":WAVEFORM_FORCED_REGEN_TOKEN", "0");
+                }
+                deadbeef->pl_unlock ();
+                deadbeef->pl_item_unref (playing);
+            }
+            if (do_regen) {
+                tid = deadbeef->thread_start_low_priority (waveform_get_wavedata_force_regen, w);
+            }
+            else {
+                tid = deadbeef->thread_start_low_priority (waveform_get_wavedata, w);
+            }
             if (tid) {
                 deadbeef->thread_detach (tid);
             }
